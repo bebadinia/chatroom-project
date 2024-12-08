@@ -41,17 +41,6 @@ const rfidTags =
     }
 };
 
-/*// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-
-function checkAuthenticated(req, res, next) {
-    if (req.headers.referer && req.headers.referer.includes('/login/')) {
-        next();
-    } else {
-        res.redirect('/login/tag1'); // Redirect to login
-    }
-}*/
-
 // Route for RFID tag login pages
 app.get('/login/:tagId', (req, res) => 
     {
@@ -155,12 +144,6 @@ wss.on('connection', (ws, req) =>
             const username = activeSessions.get(sessionId);
             clients.set(ws, { username, sessionId });
             
-            /*ws.send(JSON.stringify(
-                {
-                    type: 'message',
-                    text: 'Connected to chat',
-                    sender: 'Server'
-                }));*/
 
             // Broadcast join message
             const joinMessage = JSON.stringify(
