@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFID Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .login-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Enter Password</h2>
+        <div class="form-group">
+            <input type="password" id="password" placeholder="Enter password">
+        </div>
+        <button onclick="verifyPassword()">Login</button>
+        <div id="error-message" class="error-message">Invalid password</div>
+    </div>
+
+    <script>
+        function getTagId() {
+            const pathParts = window.location.pathname.split('/');
+            return pathParts[pathParts.length - 1];
+        }
+
+        async function verifyPassword() 
+        {
+            const password = document.getElementById('password').value;
+            const tagId = getTagId();
+
+            try 
+            {
+                const response = await fetch(`/verify/${tagId}`, 
+                {
+                    method: 'POST',
+                    headers: 
+                    {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) 
+                {
+                    // Store username and redirect to chat
+                    localStorage.setItem('username', data.username);
+                    window.location.href = `/chat.html?session=${data.sessionId}`;
+                } 
+                else 
+                {
+                    document.getElementById('error-message').style.display = 'block';
+                    document.getElementById('password').value = ''; // Clear password field
+                }
+            } 
+            catch (error) 
+            {
+                console.error('Error:', error);
+                document.getElementById('error-message').style.display = 'block';
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                verifyPassword();
+            }
+        });
+    </script>
+</body>
+</html>

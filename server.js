@@ -7,161 +7,221 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Request logging middleware
-// This is Express middleware - it runs for every HTTP request to your server
-app.use((req, res, next) => {
-    // Create a timestamp in ISO format (e.g., "2024-12-02T15:30:45.123Z")
-    const timestamp = new Date().toISOString();
-    
-    // Log the timestamp, HTTP method (GET, POST, etc), and the URL path
-    // Example: [2024-12-02T15:30:45.123Z] GET /index.html
-    console.log(`[${timestamp}] ${req.method} ${req.url}`);
-    
-    // Log all HTTP headers from the request
-    // Headers might include things like:
-    // - User-Agent (browser info)
-    // - Cookie
-    // - Accept-Language
-    console.log('Headers:', req.headers);
-    
-    // Log URL query parameters
-    // For example, if URL is "/chat?room=123&user=john"
-    // req.query would be { room: "123", user: "john" }
-    console.log('Query Parameters:', req.query);
-    
-    // If there's a request body (like in POST requests), log it
-    // This might contain form data or JSON data sent by the client
-    if (req.body) {
-        console.log('Body:', req.body);
-    }
-    
-    // Print a separator line for clearer log reading
-    console.log('-------------------');
-    
-    // next() tells Express to continue to the next middleware or route handler
-    // Without this, the request would hang!
-    next();
-});
-
-// Serve static files from 'public' directory
+// Enable JSON body parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Store connected clients with additional info
+// Add this to track session details
+const activeSessions = new Map(); // Change from Set to Map to store username with session
+
+// Simulated RFID tag database
+const rfidTags = 
+{
+    'tag1': 
+    {
+        password: 'pass1',
+        username: 'User1'
+    },
+    'tag2': 
+    {
+        password: 'pass2',
+        username: 'User2'
+    },
+    'tag3': 
+    {
+        password: 'pass3',
+        username: 'User3'
+    }
+};
+
+/*// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+function checkAuthenticated(req, res, next) {
+    if (req.headers.referer && req.headers.referer.includes('/login/')) {
+        next();
+    } else {
+        res.redirect('/login/tag1'); // Redirect to login
+    }
+}*/
+
+// Route for RFID tag login pages
+app.get('/login/:tagId', (req, res) => 
+    {
+        const tagId = req.params.tagId;
+    
+        if (rfidTags[tagId]) 
+        {
+            res.sendFile(path.join(__dirname, 'public', 'login.html'));
+        } 
+        else 
+        {
+            res.status(404).send('Invalid RFID tag');
+        }
+    });
+
+// Handle login verification
+app.post('/verify/:tagId', (req, res) => 
+    {
+        const tagId = req.params.tagId;
+        const { password } = req.body;
+
+
+        console.log('Received verification request:', { tagId, password }); // Debug log
+        
+        if (rfidTags[tagId] && rfidTags[tagId].password === password) 
+        {
+            const sessionId = Math.random().toString(36).substring(7);
+            activeSessions.set(sessionId, rfidTags[tagId].username);
+            console.log('Session created:', { sessionId, username: rfidTags[tagId].username });
+
+            res.json(
+                {
+                    success: true,
+                    username: rfidTags[tagId].username,
+                    sessionId: sessionId
+                });
+        } 
+        else 
+        {
+            console.log('Failed verification attempt');
+
+            res.status(401).json(
+                {
+                    success: false,
+                    message: 'Invalid password'
+                });
+        }
+    });
+
+app.get('/chat.html', (req, res) => 
+    {
+        const sessionId = req.query.session;
+
+        console.log('Chat access attempt:', { sessionId });
+        console.log('Active sessions:', Array.from(activeSessions.keys()));
+
+        if (sessionId && activeSessions.has(sessionId)) 
+        {
+            console.log('Valid session, granting access');
+            res.sendFile(path.join(__dirname, 'public', 'chat.html'));
+        } 
+        else 
+        {
+            console.log('Unauthorized access attempt');
+            res.status(401).send('Unauthorized Access: This chat room can only be accessed through proper RFID authentication.');
+        }
+    });
+
+// Store connected clients
 const clients = new Map();
 
-// WebSocket connection handling
-wss.on('connection', (ws, req) => {
-    const clientIp = req.socket.remoteAddress;
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] New WebSocket connection from ${clientIp}`);
-    
-    // Store client info
-    clients.set(ws, {
-        ip: clientIp,
-        connectTime: timestamp,
-        messageCount: 0
-    });
+// WebSocket connection handling (same as before)
+wss.on('connection', (ws, req) => 
+    {
+        const sessionId = new URL(req.url, 'http://localhost').searchParams.get('session');
+        console.log('WebSocket connection attempt:', { sessionId });
 
-    // Log current number of connections
-    console.log(`Active connections: ${clients.size}`);
-
-    // Send welcome message
-    ws.send(JSON.stringify({
-        type: 'message',
-        text: 'Welcome to the chat!',
-        sender: 'Server'
-    }));
-
-    // Handle incoming messages
-    ws.on('message', (message) => {
-        try {
-            const timestamp = new Date().toISOString();
-            const data = JSON.parse(message);
+        if (sessionId && activeSessions.has(sessionId)) 
+        {
+            console.log('Valid WebSocket connection');
+            const username = activeSessions.get(sessionId);
+            clients.set(ws, { username, sessionId });
             
-            // Update client message count
-            const clientInfo = clients.get(ws);
-            clientInfo.messageCount++;
-            
-            // Log message details
-            console.log(`[${timestamp}] Message received:`);
-            console.log('From IP:', clientInfo.ip);
-            console.log('Sender:', data.sender);
-            console.log('Message:', data.text);
-            console.log('Total messages from this client:', clientInfo.messageCount);
-            console.log('-------------------');
+            /*ws.send(JSON.stringify(
+                {
+                    type: 'message',
+                    text: 'Connected to chat',
+                    sender: 'Server'
+                }));*/
 
-            // Broadcast message to all connected clients
-            broadcast({
-                type: 'message',
-                text: data.text,
-                sender: data.sender,
-                timestamp: timestamp
-            });
-        } catch (error) {
-            console.error('Error processing message:', error);
-        }
-    });
-
-    // Handle client disconnection
-    ws.on('close', () => {
-        const timestamp = new Date().toISOString();
-        const clientInfo = clients.get(ws);
-        console.log(`[${timestamp}] Client disconnected:`);
-        console.log('IP:', clientInfo.ip);
-        console.log('Connection duration:', getTimeDifference(clientInfo.connectTime));
-        console.log('Total messages sent:', clientInfo.messageCount);
-        console.log('-------------------');
+            // Broadcast join message
+            const joinMessage = JSON.stringify(
+                {
+                    type: 'join',
+                    username: username
+                });
         
-        clients.delete(ws);
-        console.log(`Remaining active connections: ${clients.size}`);
-    });
-});
-
-// Broadcast message to all connected clients
-function broadcast(message) {
-    const outbound = JSON.stringify(message);
-    clients.forEach((clientInfo, client) => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(outbound);
+                clients.forEach((client, clientWs) => 
+                {
+                    if (clientWs.readyState === WebSocket.OPEN) 
+                    {
+                        clientWs.send(joinMessage);
+                    }
+                });
+        } 
+        else 
+        {
+            console.log('Invalid WebSocket connection attempt');
+            ws.close();
+            return;
         }
+
+
+        ws.on('message', (message) => 
+            {
+                try 
+                {
+                    const clientInfo = clients.get(ws);
+            
+                    if (!clientInfo) 
+                    {
+                        console.log('Message from unauthorized client');
+                        return;
+                    }
+
+                    const data = JSON.parse(message);
+                    const outbound = JSON.stringify(
+                        {
+                            type: 'message',
+                            text: data.text,
+                            sender: data.sender
+                        });
+                    
+                    clients.forEach((client, clientWs) => 
+                        {
+                            if (clientWs.readyState === WebSocket.OPEN) 
+                            {
+                                clientWs.send(outbound);
+                            }
+                        });
+                } 
+                catch (error) 
+                {
+                    console.error('Error processing message:', error);
+                }
+            });
+
+        ws.on('close', () => 
+            {
+                const clientInfo = clients.get(ws);
+                
+                if (clientInfo) 
+                {
+                    // Broadcast leave message
+                    const leaveMessage = JSON.stringify(
+                        {
+                            type: 'leave',
+                            username: clientInfo.username
+                        });
+                    
+                    clients.forEach((client, clientWs) => 
+                        {
+                            if (clientWs.readyState === WebSocket.OPEN) 
+                            {
+                                clientWs.send(leaveMessage);
+                            }
+                        });
+                }
+                
+                console.log('Client disconnected:', clientInfo);
+                clients.delete(ws);
+            });
     });
-}
 
-// Utility function to calculate time difference
-function getTimeDifference(startTime) {
-    const start = new Date(startTime);
-    const end = new Date();
-    const diff = end - start;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    } else if (minutes > 0) {
-        return `${minutes}m ${seconds % 60}s`;
-    } else {
-        return `${seconds}s`;
-    }
-}
-
-// Add basic server statistics endpoint
-app.get('/stats', (req, res) => {
-    const stats = {
-        activeConnections: clients.size,
-        clientDetails: Array.from(clients.entries()).map(([_, info]) => ({
-            ip: info.ip,
-            connectTime: info.connectTime,
-            messageCount: info.messageCount
-        }))
-    };
-    res.json(stats);
-});
-
-// Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Server started at ${new Date().toISOString()}`);
-    console.log('-------------------');
-});
+server.listen(PORT, () => 
+    {
+        console.log(`Server running on port ${PORT}`);
+    });
