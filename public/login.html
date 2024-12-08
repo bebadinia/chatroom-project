@@ -12,73 +12,85 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #f0f2f5;
+            background-color: #0a0a2e;
+            color: white;
         }
         .login-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            width: 300px;
+            text-align: center;
+            width: 400px;
         }
-        .form-group {
-            margin-bottom: 15px;
+        .logo {
+            width: 350px;
+            margin-bottom: 30px;
+        }
+        .password-container {
+            position: relative;
+            margin: 20px 0;
         }
         input {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             margin-top: 5px;
-            border: 1px solid #ddd;
+            border: 1px solid #00b4ff;
             border-radius: 4px;
+            background: transparent;
+            color: white;
             box-sizing: border-box;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #00b4ff;
         }
         button {
             width: 100%;
             padding: 10px;
-            background-color: #4CAF50;
+            background-color: #00b4ff;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
         }
-        button:hover {
-            background-color: #45a049;
-        }
         .error-message {
-            color: red;
+            color: #ff4444;
             margin-top: 10px;
-            display: none;
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h2>Enter Password</h2>
-        <div class="form-group">
+        <img src="/Logo.png" alt="RFID Chatroom" class="logo">
+        <div class="password-container">
             <input type="password" id="password" placeholder="Enter password">
+            <span class="toggle-password" onclick="togglePassword()">👁️</span>
         </div>
         <button onclick="verifyPassword()">Login</button>
-        <div id="error-message" class="error-message">Invalid password</div>
+        <div id="error-message" class="error-message"></div>
     </div>
 
     <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+        }
+
         function getTagId() {
             const pathParts = window.location.pathname.split('/');
             return pathParts[pathParts.length - 1];
         }
 
-        async function verifyPassword() 
-        {
+        async function verifyPassword() {
             const password = document.getElementById('password').value;
             const tagId = getTagId();
+            const errorElement = document.getElementById('error-message');
 
-            try 
-            {
-                const response = await fetch(`/verify/${tagId}`, 
-                {
+            try {
+                const response = await fetch(`/verify/${tagId}`, {
                     method: 'POST',
-                    headers: 
-                    {
+                    headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ password })
@@ -86,22 +98,14 @@
 
                 const data = await response.json();
 
-                if (data.success) 
-                {
-                    // Store username and redirect to chat
+                if (data.success) {
                     localStorage.setItem('username', data.username);
                     window.location.href = `/chat.html?session=${data.sessionId}`;
-                } 
-                else 
-                {
-                    document.getElementById('error-message').style.display = 'block';
-                    document.getElementById('password').value = ''; // Clear password field
+                } else {
+                    errorElement.textContent = data.message || 'Incorrect password';
                 }
-            } 
-            catch (error) 
-            {
-                console.error('Error:', error);
-                document.getElementById('error-message').style.display = 'block';
+            } catch (error) {
+                errorElement.textContent = 'An error occurred. Please try again.';
             }
         }
 

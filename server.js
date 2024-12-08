@@ -15,6 +15,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Add this to track session details
 const activeSessions = new Map(); // Change from Set to Map to store username with session
 
+// Add this to track active users
+const activeUsers = new Set();
+
 // Simulated RFID tag database
 const rfidTags = 
 {
@@ -67,13 +70,33 @@ app.post('/verify/:tagId', (req, res) =>
         const tagId = req.params.tagId;
         const { password } = req.body;
 
+        console.log('Verification attempt for:', { tagId, username: rfidTags[tagId]?.username });
+        console.log('Currently active users:', Array.from(activeUsers));
+
+         // Check if user exists and is already active
+        if (rfidTags[tagId]) 
+        {
+            if (activeUsers.has(rfidTags[tagId].username))
+            {
+                console.log('Rejected: User already logged in');
+                res.status(403).json(
+                    {
+                        success: false,
+                        message: 'This user is already logged in'
+                    });
+                return;
+            }
+        }
+
 
         console.log('Received verification request:', { tagId, password }); // Debug log
-        
-        if (rfidTags[tagId] && rfidTags[tagId].password === password) 
+
+        // Check password
+        if (rfidTags[tagId].password === password) //(rfidTags[tagId] && rfidTags[tagId].password === password) 
         {
             const sessionId = Math.random().toString(36).substring(7);
             activeSessions.set(sessionId, rfidTags[tagId].username);
+            activeUsers.add(rfidTags[tagId].username);
             console.log('Session created:', { sessionId, username: rfidTags[tagId].username });
 
             res.json(
@@ -193,12 +216,16 @@ wss.on('connection', (ws, req) =>
                 }
             });
 
+
         ws.on('close', () => 
             {
                 const clientInfo = clients.get(ws);
                 
                 if (clientInfo) 
                 {
+
+                    activeUsers.delete(clientInfo.username);
+
                     // Broadcast leave message
                     const leaveMessage = JSON.stringify(
                         {
@@ -214,7 +241,7 @@ wss.on('connection', (ws, req) =>
                             }
                         });
                 }
-                
+
                 console.log('Client disconnected:', clientInfo);
                 clients.delete(ws);
             });
