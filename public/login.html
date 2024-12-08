@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RFID Login</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon2.ico">
     <style>
-        body {
+        body 
+        {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
@@ -15,19 +17,23 @@
             background-color: #0a0a2e;
             color: white;
         }
-        .login-container {
+        .login-container 
+        {
             text-align: center;
             width: 400px;
         }
-        .logo {
+        .logo 
+        {
             width: 350px;
             margin-bottom: 30px;
         }
-        .password-container {
+        .password-container 
+        {
             position: relative;
             margin: 20px 0;
         }
-        input {
+        input 
+        {
             width: 100%;
             padding: 10px;
             margin-top: 5px;
@@ -37,7 +43,8 @@
             color: white;
             box-sizing: border-box;
         }
-        .toggle-password {
+        .toggle-password 
+        {
             position: absolute;
             right: 10px;
             top: 50%;
@@ -45,7 +52,8 @@
             cursor: pointer;
             color: #00b4ff;
         }
-        button {
+        button 
+        {
             width: 100%;
             padding: 10px;
             background-color: #00b4ff;
@@ -54,7 +62,8 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        .error-message {
+        .error-message 
+        {
             color: #ff4444;
             margin-top: 10px;
         }
@@ -62,7 +71,7 @@
 </head>
 <body>
     <div class="login-container">
-        <img src="/Logo.png" alt="RFID Chatroom" class="logo">
+        <img src="/images/Logo.png" alt="RFID Chatroom" class="logo">
         <div class="password-container">
             <input type="password" id="password" placeholder="Enter password">
             <span class="toggle-password" onclick="togglePassword()">👁️</span>
