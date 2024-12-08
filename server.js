@@ -24,17 +24,20 @@ const rfidTags =
     'tag1': 
     {
         password: 'pass1',
-        username: 'User1'
+        username: 'Ben',
+        encryptionKey: 'K9x#mP2$vL5nQ8wR3@jB7hC4tF6yN9pZ' // Simulate reading from the tag
     },
     'tag2': 
     {
         password: 'pass2',
-        username: 'User2'
+        username: 'Anthony',
+        encryptionKey: 'K9x#mP2$vL5nQ8wR3@jB7hC4tF6yN9pZ' // Simulate reading from the tag
     },
     'tag3': 
     {
         password: 'pass3',
-        username: 'User3'
+        username: 'Andres',
+        encryptionKey: 'K9x#mP2$vL5nQ8wR3@jB7hC4tF6yN9pZ' // Simulate reading from the tag
     }
 };
 
@@ -206,6 +209,7 @@ wss.on('connection', (ws, req) =>
                         {
                             if (clientWs.readyState === WebSocket.OPEN) 
                             {
+                                
                                 clientWs.send(outbound);
                             }
                         });
