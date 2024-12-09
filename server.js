@@ -16,6 +16,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Add this to track session details
 const activeSessions = new Map(); // Change from Set to Map to store username with session
+//const invalidatedSessions = new Set(); // To track logged out sessions
 
 // Add this to track active users
 const activeUsers = new Set();
@@ -279,6 +280,7 @@ wss.on('connection', (ws, req) =>
 
         console.log('Client disconnected:', clientInfo);
         clients.delete(ws);
+        activeSessions.delete(clientInfo.sessionId);
     });
 });
 
