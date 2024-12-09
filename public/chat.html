@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Room</title>
     <link rel="icon" type="image/x-icon" href="/images/favicon2.ico">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         body 
         {
@@ -88,18 +89,6 @@
             border-bottom-left-radius: 8px;
             border-bottom-right-radius: 8px;
         }
-        /*.server-message {
-            background-color: #f0f0f0;
-        }
-        .user-message {
-            background-color: #e3f2fd;
-        }
-        #input-container {
-            padding: 10px;
-            border-top: 1px solid #ccc;
-            display: flex;
-            gap: 10px;
-        }*/
         #message-input 
         {
             flex-grow: 1;
@@ -156,11 +145,84 @@
 
         let ws;
         connectWebSocket();
+        let encryptionKey = 'null'; // Will store the key in memory only
+
+        // On page load, get the key from login response and store in memory
+        window.onload = function() 
+        {
+            // Get the encryption key from localStorage (set during login)
+            encryptionKey = localStorage.getItem('encryptionKey');
+            console.log('Attempting to load encryption key');
+
+            if (!encryptionKey) 
+            {
+                console.error('No encryption key found');
+                document.body.innerHTML = '<h1>Error</h1><p>No encryption key available.</p>';
+                return;
+            }
+
+            console.log('Encryption key loaded from login');
+        };
+
+        // Add encryption functions
+        async function encryptMessage(text) 
+        {
+            if (!encryptionKey) 
+            {
+                console.log('No encryption key available');
+                return null;
+            }
+            
+            try
+            {
+                //const message = text.toString();
+                console.log('Original message in Encrypt:', text);
+                console.log('Using key:', encryptionKey);
+                // Simple encryption using CryptoJS
+                const encrypted = CryptoJS.AES.encrypt(text, encryptionKey).toString();
+                //CryptoJS.enc.Utf8
+                console.log('Message encrypted in Encrypt:', encrypted);
+
+                if (!encrypted) {
+            throw new Error('Encryption returned empty result');
+        }
+                return encrypted;
+            }
+            catch (error) 
+            {
+                console.error('Encryption failed:', error);
+                throw error;
+            }
+        }
+
+        async function decryptMessage(text) 
+        {
+            if (!encryptionKey) 
+            {
+                console.error('No encryption key available');
+                return null;
+            }
+            
+            try 
+            {
+                // Simple decryption using CryptoJS
+                const decrypted = CryptoJS.AES.decrypt(text, encryptionKey);
+                const plaintext = decrypted.toString(CryptoJS.enc.Utf8);
+                //CryptoJS.enc.Utf8
+                console.log('Message decrypted:', plaintext);
+                return plaintext;
+            } 
+            catch (error) 
+            {
+                console.error('Decryption failed:', error);
+                throw error;
+            }
+        }
 
         function connectWebSocket() 
         {
             const sessionId = new URLSearchParams(window.location.search).get('session');
-            
+
             if (!sessionId) 
             {
                 document.body.innerHTML = '<h1>Unauthorized Access</h1><p>This chat room can only be accessed through proper RFID authentication.</p>';
@@ -173,64 +235,114 @@
 
             ws.onmessage = (event) => 
             {
+                
+                console.log('Attempting to read message');
                 const message = JSON.parse(event.data);
+                console.log('Message received:', message.encryptedText);
                 displayMessage(message);
             };
 
             ws.onclose = () => 
             {
+                encryptionKey = null;  // clear key from memory
                 console.log('Connection closed');
                 // Instead of redirecting, show error message
                 document.body.innerHTML = '<h1>Connection Lost</h1><p>Unauthorized access or connection lost. This chat room requires proper RFID authentication.</p>';
             };
         }
 
-        function sendMessage() 
+        async function sendMessage() 
         {
             const messageInput = document.getElementById('message-input');
-            const message = messageInput.value.trim();
+            const message = messageInput.value.toString().trim();
             
             if (message && ws && ws.readyState === WebSocket.OPEN) 
             {
-                ws.send(JSON.stringify(
-                    {
-                        text: message,
-                        sender: username
-                    }));
-                
+                try 
+                {
+                    console.log('Original message in Send:', message);
+                    const encrypted = await encryptMessage(message);
+                    console.log('Message encrypted in Send:', encrypted);
+
+                    const outgoingMessage = {
+                                                type: 'message',
+                                                encryptedText: encrypted,
+                                                sender: username
+                                            };
+                    console.log('Sending message object:', outgoingMessage);
+
+                    ws.send(JSON.stringify(outgoingMessage));
+                    console.log('Message sent successfully');
+
+                    console.log('Message is from current user, using plaintext');
+                    const messagesDiv = document.getElementById('messages');
+                    const messageElement = document.createElement('div');
+                    messageElement.classList.add('message', 'my-message');
+                    messageElement.textContent = `${username}: ${message}`;
+                    messagesDiv.appendChild(messageElement);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
                     messageInput.value = '';
+                } 
+                catch (error) 
+                {
+                    console.error('Error sending message:', error);
+                }
+                    
+                    
             }
         }
 
-        function displayMessage(message) 
+        async function displayMessage(message) 
         {
+            console.log('Received message to display:', message);
             const messagesDiv = document.getElementById('messages');
             const messageElement = document.createElement('div');
-            messageElement.classList.add('message');
+            //messageElement.classList.add('message');
             
             if (message.type === 'join') 
             {
+                console.log('Processing join message for:', message.username);
                 messageElement.classList.add('server-join');
                 messageElement.textContent = `${message.username} has joined the chat!`;
             } 
             else if (message.type === 'leave') 
             {
+                console.log('Processing leave message for:', message.username);
                 messageElement.classList.add('server-leave');
                 messageElement.textContent = `${message.username} has left the chat.`;
             } 
-            else 
+            else if (message.type === 'message' && message.sender !== username) 
             {
-                messageElement.classList.add('message');
-                
-                if (message.sender === username) 
-                {
-                    messageElement.classList.add('my-message');
-                } 
-                else 
-                {
-                    messageElement.classList.add('other-message');
-                }
-                messageElement.textContent = `${message.sender}: ${message.text}`;
+                    console.log('Processing chat message from:', message.sender);
+
+                    // Only decrypt and display messages from other users
+                    try 
+                    {
+                        console.log('Encrypted Message:', message.encryptedText);
+                        const decryptedText = decryptMessage(message.encryptedText);
+                        console.log('Decrypted Message:', decryptedText);
+                        messageElement.classList.add('message', 'other-message');
+                        //messageElement.textContent = `${message.sender}: ${decryptedText}`;
+                        // Wait for the Promise to resolve if decryptMessage is async
+                        if (decryptedText instanceof Promise) 
+                        {
+                            decryptedText.then(text => 
+                            {
+                                messageElement.textContent = `${message.sender}: ${text}`;
+                            });
+                        } 
+                        else 
+                        {
+                            messageElement.textContent = `${message.sender}: ${decryptedText}`;
+                        }
+                        
+                    } 
+                    catch (error) 
+                    {
+                        console.error('Decryption failed:', error);
+                        messageElement.textContent = `${message.sender}: [Unable to decrypt message]`;
+                    }
             }
             
             messagesDiv.appendChild(messageElement);
@@ -238,12 +350,18 @@
         }
 
         document.getElementById('message-input').addEventListener('keypress', (e) => 
+        {
+            if (e.key === 'Enter') 
             {
-                if (e.key === 'Enter') 
-                {
-                    sendMessage();
-                }
-            });
+                sendMessage();
+            }
+        });
+
+        // Add this new event listener here
+        window.addEventListener('beforeunload', () => 
+        {
+            encryptionKey = null;
+        });
     </script>
 </body>
 </html>

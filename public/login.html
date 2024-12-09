@@ -96,8 +96,10 @@
             const tagId = getTagId();
             const errorElement = document.getElementById('error-message');
 
-            try {
-                const response = await fetch(`/verify/${tagId}`, {
+            try 
+            {
+                const response = await fetch(`/verify/${tagId}`, 
+                {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -107,13 +109,19 @@
 
                 const data = await response.json();
 
-                if (data.success) {
+                if (data.success) 
+                {
                     localStorage.setItem('username', data.username);
+                    localStorage.setItem('encryptionKey', data.encryptionKey);
                     window.location.href = `/chat.html?session=${data.sessionId}`;
-                } else {
+                } 
+                else 
+                {
                     errorElement.textContent = data.message || 'Incorrect password';
                 }
-            } catch (error) {
+            } 
+            catch (error) 
+            {
                 errorElement.textContent = 'An error occurred. Please try again.';
             }
         }
