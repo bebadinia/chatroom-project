@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Room</title>
+
+    <!-- Favicon and dependencies -->
     <link rel="icon" type="image/x-icon" href="/images/favicon2.ico">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+
+    <!-- CSS Styles -->
     <style>
-        body 
+        /* Base layout styles */       
+        body  /* Main page layout */
         {
             font-family: Arial, sans-serif;
             max-width: 800px;
@@ -15,7 +21,7 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
-        #username-display 
+        #username-display /* Chat header */
         {
             text-align: center;
             font-size: 1.5em;
@@ -23,7 +29,7 @@
             color: #333;
             font-weight: bold;
         }
-        #chat-container 
+        #chat-container /* Chat container */
         {
             border: 1px solid #ccc;
             border-radius: 8px;
@@ -33,12 +39,16 @@
             background-color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        #messages 
+
+        /* Messages area styles */
+        #messages
         {
             flex-grow: 1;
             overflow-y: auto;
             padding: 15px;
         }
+
+        /* Message types styling */
         .message 
         {
             margin: 5px 0;
@@ -79,6 +89,8 @@
             margin-left: auto;
             color: #333;
         }
+
+        /* Input area styles */
         #input-container 
         {
             padding: 15px;
@@ -103,6 +115,8 @@
             border-color: #4CAF50;
             box-shadow: 0 0 0 2px rgba(76,175,80,0.2);
         }
+
+        /* Button styles */
         button 
         {
             padding: 10px 20px;
@@ -121,6 +135,7 @@
     </style>
 </head>
 <body>
+    <!-- Chat interface -->
     <div id="username-display"></div>
     <div id="chat-container">
         <div id="messages"></div>
@@ -131,26 +146,26 @@
     </div>
 
     <script>
-        // Check if user is authenticated
-        const username = localStorage.getItem('username');
+        // Global variables
+        const username = localStorage.getItem('username'); // Check if user is authenticated
+        let ws;
+        let encryptionKey = 'null'; // Will store the key in memory only during the session
         
+        // Check if user is authenticated
         if (!username) 
         {
             document.body.innerHTML = '<h1>Unauthorized Access</h1><p>This chat room can only be accessed through proper RFID authentication.</p>';
             throw new Error('Unauthorized access');
         }
 
-        // Display username
-        document.getElementById('username-display').textContent = `Logged in as: ${username}`;
-
-        let ws;
+        // Initialize chatroom
+        document.getElementById('username-display').textContent = `Logged in as: ${username}`; // Display username
         connectWebSocket();
-        let encryptionKey = 'null'; // Will store the key in memory only
+        
 
         // On page load, get the key from login response and store in memory
         window.onload = function() 
         {
-            // Get the encryption key from localStorage (set during login)
             encryptionKey = localStorage.getItem('encryptionKey');
             console.log('Attempting to load encryption key');
 
@@ -164,7 +179,8 @@
             console.log('Encryption key loaded from login');
         };
 
-        // Add encryption functions
+
+        // ----------ENCRYPTION FUNCTIONS----------
         async function encryptMessage(text) 
         {
             if (!encryptionKey) 
@@ -175,17 +191,18 @@
             
             try
             {
-                //const message = text.toString();
-                console.log('Original message in Encrypt:', text);
+                //console.log('Original message in Encrypt:', text); // Debugging
                 console.log('Using key:', encryptionKey);
+
                 // Simple encryption using CryptoJS
                 const encrypted = CryptoJS.AES.encrypt(text, encryptionKey).toString();
                 //CryptoJS.enc.Utf8
                 console.log('Message encrypted in Encrypt:', encrypted);
 
-                if (!encrypted) {
-            throw new Error('Encryption returned empty result');
-        }
+                if (!encrypted) 
+                {
+                    throw new Error('Encryption returned empty result');
+                }
                 return encrypted;
             }
             catch (error) 
@@ -209,7 +226,7 @@
                 const decrypted = CryptoJS.AES.decrypt(text, encryptionKey);
                 const plaintext = decrypted.toString(CryptoJS.enc.Utf8);
                 //CryptoJS.enc.Utf8
-                console.log('Message decrypted:', plaintext);
+                //console.log('Message decrypted:', plaintext); // Debugging
                 return plaintext;
             } 
             catch (error) 
@@ -219,7 +236,9 @@
             }
         }
 
-        function connectWebSocket() 
+        // ----------WEBSOCKET FUNCTIONS----------
+
+        function connectWebSocket() // WebSocket connection
         {
             const sessionId = new URLSearchParams(window.location.search).get('session');
 
@@ -229,10 +248,10 @@
                 return;
             }
 
-
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}?session=${sessionId}`);
 
+            // WebSocket event handlers
             ws.onmessage = (event) => 
             {
                 
@@ -251,7 +270,7 @@
             };
         }
 
-        async function sendMessage() 
+        async function sendMessage() // Message handling
         {
             const messageInput = document.getElementById('message-input');
             const message = messageInput.value.toString().trim();
@@ -260,20 +279,22 @@
             {
                 try 
                 {
-                    console.log('Original message in Send:', message);
+                    // Encrypt and send message
+                    //console.log('Original message in Send:', message); // Debugging
                     const encrypted = await encryptMessage(message);
-                    console.log('Message encrypted in Send:', encrypted);
+                    //console.log('Message encrypted in Send:', encrypted); // Debugging
 
                     const outgoingMessage = {
                                                 type: 'message',
                                                 encryptedText: encrypted,
                                                 sender: username
                                             };
-                    console.log('Sending message object:', outgoingMessage);
+                    //console.log('Sending message object:', outgoingMessage);
 
                     ws.send(JSON.stringify(outgoingMessage));
                     console.log('Message sent successfully');
-
+                    
+                    // Display own message immediately
                     console.log('Message is from current user, using plaintext');
                     const messagesDiv = document.getElementById('messages');
                     const messageElement = document.createElement('div');
@@ -287,19 +308,20 @@
                 catch (error) 
                 {
                     console.error('Error sending message:', error);
-                }
-                    
+                }        
                     
             }
         }
 
-        async function displayMessage(message) 
+        async function displayMessage(message)  // Message display handler
         {
             console.log('Received message to display:', message);
             const messagesDiv = document.getElementById('messages');
             const messageElement = document.createElement('div');
             //messageElement.classList.add('message');
             
+
+            // Handle different message types
             if (message.type === 'join') 
             {
                 console.log('Processing join message for:', message.username);
@@ -319,11 +341,12 @@
                     // Only decrypt and display messages from other users
                     try 
                     {
-                        console.log('Encrypted Message:', message.encryptedText);
+                        //console.log('Encrypted Message:', message.encryptedText); // Debugging
                         const decryptedText = decryptMessage(message.encryptedText);
-                        console.log('Decrypted Message:', decryptedText);
+                        //console.log('Decrypted Message:', decryptedText); // Debugging
                         messageElement.classList.add('message', 'other-message');
                         //messageElement.textContent = `${message.sender}: ${decryptedText}`;
+                        
                         // Wait for the Promise to resolve if decryptMessage is async
                         if (decryptedText instanceof Promise) 
                         {
@@ -349,6 +372,8 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
+
+        // Event listeners
         document.getElementById('message-input').addEventListener('keypress', (e) => 
         {
             if (e.key === 'Enter') 
@@ -357,7 +382,6 @@
             }
         });
 
-        // Add this new event listener here
         window.addEventListener('beforeunload', () => 
         {
             encryptionKey = null;
